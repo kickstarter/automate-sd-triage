@@ -1,18 +1,18 @@
 ## ADDED Requirements
 
-### Requirement: Shadow (dry-run) mode
+### Requirement: Live operation with an available pause mode
 
-The system SHALL support a mode in which it computes and logs the triage decision (including the would-be audit comment) without writing any change to Jira, controlled by configuration.
+The system SHALL actuate live by default, and SHALL support a shadow (dry-run) mode — controlled by configuration — in which it computes and logs the triage decision (including the would-be audit comment) without writing any change to Jira, usable for testing or as a pause switch.
 
 #### Scenario: Shadow run takes no Jira writes
 
 - **WHEN** the system runs in shadow mode
 - **THEN** it logs the decision it would make for each ticket and performs no writes to Jira
 
-#### Scenario: Toggle to live
+#### Scenario: Pause via configuration
 
-- **WHEN** a maintainer changes the mode configuration from shadow to live
-- **THEN** subsequent runs actuate decisions, with no code change required
+- **WHEN** a maintainer switches the mode configuration from live to shadow
+- **THEN** subsequent runs stop writing to Jira, with no code change required
 
 ### Requirement: Per-run audit trail
 
@@ -23,14 +23,33 @@ The system SHALL record, for each run, the tickets considered, the decisions mad
 - **WHEN** a maintainer inspects a completed run
 - **THEN** they can see which tickets were processed, the decisions and rationales, and whether each write succeeded or failed
 
-### Requirement: Override-rate tracking
+### Requirement: Weekly override-audit job and override logfile
 
-The system SHALL make it possible to measure the rate at which receiving teams subsequently change the agent's triage decisions (priority, labels, or team), as the primary health metric.
+The system SHALL provide a separate, less-frequent (e.g., weekly) job that scans tickets the agent has triaged for subsequent human changes to priority, labels, or team, and appends each detected override to a dedicated override logfile committed in the repository. This is the primary health metric and runs independently of the main triage schedule.
 
-#### Scenario: Override signal captured
+#### Scenario: Override detected and logged
 
-- **WHEN** a triaged ticket's priority or team is later changed by a human
-- **THEN** that change is observable as an override for health-metric reporting
+- **WHEN** the weekly override-audit job finds that a triaged ticket's priority, labels, or team was later changed by a human
+- **THEN** it appends a record of that override to the override logfile in the repo
+
+#### Scenario: Override-audit runs on its own schedule
+
+- **WHEN** the override-audit job is configured
+- **THEN** it runs on a less-frequent cadence than the main triage job and does not block or slow the main job
+
+#### Scenario: Override trend is reviewable in version control
+
+- **WHEN** a maintainer reviews the override logfile
+- **THEN** the override history and trend are visible through the repository's version history without additional infrastructure
+
+### Requirement: Batch review of low-confidence triages
+
+The system SHALL make low-confidence triages reviewable as a batch via the `needs-review` label.
+
+#### Scenario: Low-confidence tickets swept
+
+- **WHEN** a maintainer queries Jira for the `needs-review` label
+- **THEN** they retrieve the set of low-confidence triages for batch review
 
 ### Requirement: Periodic digest
 

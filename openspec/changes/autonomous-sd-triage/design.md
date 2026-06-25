@@ -79,11 +79,26 @@ The intake query excludes tickets already carrying `support-dev`; applying that 
 
 - *Why:* Simple, visible, and uses an existing field — no separate state store to maintain. A human who triages first (adds the label) is naturally skipped.
 
-### D9. Shadow mode before trusting it
+### D9. Live from the start, monitored by a separate weekly override-audit job
 
-A dry-run mode logs the decision it *would* make (and would-be audit comment) without writing to Jira, for an initial measurement window.
+The system actuates live from day one rather than running a shadow gate. A **separate, less-frequent job** (weekly) scans tickets the agent triaged for subsequent human changes to priority, labels, or team, and appends each to a dedicated **override logfile committed in the repo**. A shadow/dry-run mode still exists, but as a test-and-pause switch, not the rollout mechanism.
 
-- *Why:* Lets us read the override/accuracy rate before leaning on the downstream backstop — cheap insurance, especially since SLAs are forgiving.
+- *Why:* The downstream backstop is trusted and corrections are routine, so there is little to gain from withholding action. Override data is more meaningful gathered against real live decisions than against hypothetical shadow ones. Keeping the override-audit on its own infrequent schedule keeps the fast main job simple and cheap.
+- *Override logfile in the repo:* version-controlled, diffable, and readable by any future owner with zero extra infrastructure — the override trend lives in git history.
+- *Alternative:* shadow-window-then-threshold gate — rejected as unnecessary ceremony for a trusted-backstop, forgiving-SLA context.
+
+### D10. Routing is a cross-project move into a team project
+
+Intake tickets live in `project = SD`. Routing assigns one of **8 live team projects** and physically **moves** the issue there (Jira move operation). The `support-dev` label is applied before the move so the operation is idempotent and retry-safe. (Payments and Team B are legacy holdover projects and Support Team is the CS intake source — none are routing targets; see `routing-table.yml`.)
+
+- *Why:* This matches the existing board model — the board shows `project = SD` (untriaged) plus `support-dev`-labeled issues across the team projects (triaged).
+- *Trade-off:* a cross-project move is the most fragile write (issue type / field / workflow differences across projects can cause failures). Handled in Risks.
+
+### D11. Low-confidence batch-review label
+
+When decision confidence is low, the agent applies a `needs-review` label (in addition to the audit-comment flag) so low-confidence triages are filterable via JQL for periodic batch review.
+
+- *Why:* Gives a cheap, sweepable review surface without recreating a centralized holding queue or blocking the ticket's progress.
 
 ## Risks / Trade-offs
 
@@ -92,23 +107,29 @@ A dry-run mode logs the decision it *would* make (and would-be audit comment) wi
 - **Customer PII flows to the Claude API** → Require an explicit, documented data-handling decision (and any redaction) before go-live; record it in the README.
 - **Running as a personal account looks wrong / breaks on departure** → D6 credential indirection makes the bot swap a secrets-only change; documented as a one-step runbook.
 - **Confluence priority guide changes or moves** → Agent reads it at runtime and fails safe (skips priority change with a flagged comment) if it cannot fetch the guide, rather than guessing.
-- **Ambiguous/no-clear-team tickets in full-auto** → Defined fallback: best-guess route with an explicit low-confidence flag in the comment (and/or a configurable holding team), never silent drop.
+- **Ambiguous/no-clear-team tickets in full-auto** → Defined fallback: best-guess route with a `needs-review` label + explicit low-confidence note in the comment, never a silent drop and never a centralized holding queue.
+- **Cross-project move fails (issue type / field / workflow mismatch)** → Apply `support-dev` and all field changes *before* attempting the move; on move failure, leave the ticket labeled (so it is skipped next run), record the failure in the audit trail, and surface it for human completion. Confirm per-target-project issue-type/field compatibility during build.
 - **Cron overlap or partial failures** → Idempotent by design (D8); a run that fails mid-ticket is safe to re-run because already-labeled tickets are skipped.
 
 ## Migration Plan
 
-1. Stand up the repo skeleton, config (`routing-table.yml`), secrets (Luke's creds), and the cron workflow disabled / shadow-only.
-2. Run in **shadow mode** for an agreed window; review logged decisions and would-be override rate with the team.
-3. Tune routing table and priority prompting from shadow findings.
-4. Flip to **live** (writes enabled). Monitor override rate + weekly digest.
+1. Stand up the repo skeleton, config (`routing-table.yml` with confirmed project keys), secrets (Luke's creds), and a smoke test against a few real tickets in shadow mode to confirm reads/decisions/moves behave.
+2. Enable the cron workflow **live**.
+3. Enable the separate weekly override-audit job writing to the override logfile.
+4. Review the override logfile weekly; tune the routing table and priority prompting as the data warrants.
 5. When a bot account is available, swap secrets (one-step runbook). No code change.
 
 **Rollback:** a single config flag returns the system to shadow mode (or disable the workflow) — no customer-facing teardown required.
 
-## Open Questions
+## Open Questions (resolved during planning)
 
-- What is the exact intake JQL behind quick filters 1230 + 1264, and is `support-dev`-absent a sufficient "untriaged" predicate?
-- What does "move into a team's space" mean mechanically in this Jira — a Team field, a component, a different project/board? (Determines the actuation write.)
-- Data-handling: is sending ticket content (incl. PII) to the Claude API approved as-is, or is redaction required?
-- Is there a sanctioned default/holding team for no-clear-owner tickets, or should those flag for a human?
-- Confidence thresholds: what would-be override rate in shadow mode is "good enough" to flip live?
+- **Intake JQL** — Resolved. Board filter is `project = SD OR (labels in (support-dev) AND project in [11 team projects])`. Intake = `project = SD AND (labels is EMPTY OR labels not in (support-dev))`; `support-dev`-absent is the untriaged predicate.
+- **"Move into a team's space"** — Resolved. A genuine **cross-project move** into one of the 11 team projects (see D10). *Remaining sub-task:* obtain each project's key for the move API.
+- **Data-handling (PII → Claude API)** — Resolved. Send as-is, **no redaction**; recorded in README.
+- **No-clear-owner fallback** — Resolved. Best-guess route + `needs-review` label for batch review (D11); no holding team.
+- **Shadow→live threshold** — Resolved. **Start live**; monitor via a separate weekly override-audit job → override logfile (D9). No shadow gate.
+
+## Remaining Unknowns
+
+- The 8 live team projects' **project keys** (to be hand-filled in `routing-table.yml`) and per-project issue-type/field compatibility for cross-project moves.
+- All 8 ownership surfaces are now confirmed in `routing-table.yml` (incl. the Checkout/E-Commerce Foundation on-session vs off-session money split; Product Foundation owning client fundamentals across web/iOS/Android; Flagship as a rare, named-project route best left to LLM/human recognition). Keyword lists will still benefit from tuning against real ticket data once live.

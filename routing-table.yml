@@ -1,0 +1,111 @@
+# routing-table.yml — SD intake → owning team project
+#
+# Used by the triage agent to route a ticket to the owning team.
+# Evaluated top-to-bottom; the FIRST confident match wins.
+#   no deterministic match  -> LLM fallback (reasons over ticket + team directory + routing_hints below)
+#   still no confident team -> best-guess route + `needs-review` label (never dropped, no holding queue)
+#
+# ┌─────────────────────────────────────────────────────────────────────┐
+# │  TO FILL IN BY HAND: the `key:` field for each team below.           │
+# │  Find it in any ticket URL for that project (e.g. .../browse/CHK-123 │
+# │  -> key is "CHK"). Needed for the cross-project move API.            │
+# └─────────────────────────────────────────────────────────────────────┘
+#
+# NOT routing targets (documented so they are not re-added by mistake):
+#   - "Payments"     : LEGACY. Holdover tickets only; never accepts new tickets.
+#   - "Team B"       : LEGACY. Holdover tickets only; never accepts new tickets.
+#   - "Support Team" : CS intake — the SOURCE of SD tickets, not a destination.
+
+version: 1
+
+defaults:
+  fallback: best_guess          # best-guess route; never drop a ticket
+  low_confidence_label: needs-review
+
+# Cross-cutting hints for the LLM fallback when deterministic rules don't fire.
+routing_hints:
+  money_movement: >
+    Split money issues by session context. "On-session" = money action during an
+    active user/pledge/checkout session (e.g. a pledge charge failing at checkout)
+    -> Checkout. "Off-session" = money moved outside an active session (payouts,
+    settlements, recurring/retried charges), the tax-compliance backend, and the
+    ENTIRE refund stack incl. creator-facing refunds -> E-Commerce Foundation.
+
+teams:
+
+  # ── Money / commerce ────────────────────────────────────────────────
+  - project: "Checkout"
+    key: ""                       # FILL IN
+    owns: >
+      Cart and on-session payments (pledge/checkout flow). EXCLUDES creator-facing
+      refund workflows (those go to E-Commerce Foundation).
+    match_any:
+      keywords: ["cart", "checkout", "pledge", "place order", "pledge failed",
+                 "card declined at checkout", "payment failed during checkout",
+                 "on-session payment"]
+
+  - project: "E-Commerce Foundation"
+    key: ""                       # FILL IN
+    owns: >
+      Off-session movement of money (payouts, settlements, recurring/retried charges),
+      the tax-compliance backend consumed by Checkout, and effectively the full
+      front-to-back refund stack (including creator-facing refunds).
+    match_any:
+      keywords: ["refund", "creator refund", "payout", "settlement", "off-session",
+                 "recurring charge", "retry charge", "tax", "vat", "tax compliance",
+                 "chargeback", "money movement"]
+
+  # ── Product surfaces ────────────────────────────────────────────────
+  - project: "Creator Tools Team"
+    key: ""                       # FILL IN
+    owns: "Creator-side tooling: project editor, creator dashboard, campaign management, backer reports."
+    match_any:
+      keywords: ["creator dashboard", "edit project", "project editor", "campaign",
+                 "creator settings", "backer report", "creator tools"]
+
+  - project: "Discovery"
+    key: ""                       # FILL IN
+    owns: "Search, browse, recommendations, category/results pages, ranking."
+    match_any:
+      keywords: ["search", "browse", "discover", "recommendation", "category",
+                 "ranking", "results page"]
+
+  # ── Platform / infra ────────────────────────────────────────────────
+  - project: "Infrastructure"
+    key: ""                       # FILL IN
+    owns: "Platform infrastructure: uptime, latency, deploys, site-wide outages."
+    match_any:
+      keywords: ["outage", "downtime", "500 error", "site-wide", "latency",
+                 "timeout", "deploy", "infra", "cdn", "dns"]
+
+  - project: "Product Foundation"
+    key: ""                       # FILL IN
+    owns: >
+      The fundamentals required to be a web app serving web, iOS, and Android
+      clients: auth/login, accounts, sessions, notifications, and the shared
+      client platform across web and mobile. (Distinct from Infrastructure, which
+      owns uptime/latency/deploys/outages.)
+    match_any:
+      keywords: ["login", "sign in", "sign-in", "authentication", "auth", "session",
+                 "account", "password reset", "notification", "push notification",
+                 "ios", "android", "mobile app", "web client", "app crash"]
+
+  - project: "Internal Services"
+    key: ""                       # FILL IN
+    owns: >
+      Internal / admin tooling, back-office, and staff tools. Also home for
+      classifiers such as spam detection and project quality tagging.
+    match_any:
+      keywords: ["admin", "internal tool", "back-office", "staff tool",
+                 "spam", "spam detection", "project quality", "quality tagging",
+                 "classifier", "moderation"]
+
+  - project: "Flagship"
+    key: ""                       # FILL IN
+    owns: >
+      Special projects for our largest creators. Rarely a routing target — tends to
+      receive only tickets tied directly to a specific project Flagship has released.
+      Default to LLM/human recognition of a named flagship project rather than broad
+      keyword matching.
+    match_any:
+      keywords: ["flagship", "special project"]

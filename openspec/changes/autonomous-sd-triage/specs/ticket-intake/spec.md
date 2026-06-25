@@ -6,7 +6,7 @@ The system SHALL, on a recurring schedule, query the SD board for new intake tic
 
 #### Scenario: New untriaged ticket detected
 
-- **WHEN** the scheduled run executes and an SD intake ticket exists without the `support-dev` label
+- **WHEN** the scheduled run executes and a ticket in `project = SD` exists without the `support-dev` label
 - **THEN** the system selects that ticket for triage
 
 #### Scenario: Already-triaged ticket skipped

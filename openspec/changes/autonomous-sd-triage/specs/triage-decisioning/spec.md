@@ -59,7 +59,7 @@ The system SHALL determine the owning team using a deterministic routing table f
 #### Scenario: No clear owner
 
 - **WHEN** neither the table nor judgment yields a confident team
-- **THEN** the system applies the configured fallback (best-guess with a low-confidence flag, or the designated holding team) and never silently drops the ticket
+- **THEN** the system routes to its best-guess team, marks the decision low-confidence (driving a `needs-review` label at actuation), and never silently drops the ticket or sends it to a centralized holding queue
 
 ### Requirement: Written rationale and confidence
 

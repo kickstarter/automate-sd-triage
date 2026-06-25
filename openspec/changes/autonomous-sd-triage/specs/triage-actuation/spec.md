@@ -2,17 +2,31 @@
 
 ### Requirement: Apply triage decision to Jira
 
-The system SHALL write the decided priority, labels (including `support-dev`), and team assignment/move to the ticket in Jira.
+The system SHALL write the decided priority and labels (including `support-dev`) to the ticket, then move the ticket to the owning team's project. Labels and field changes SHALL be applied before the move so that a failed move leaves the ticket marked and retry-safe.
 
 #### Scenario: Successful actuation
 
 - **WHEN** a triage decision is finalized in live mode
-- **THEN** the system sets the ticket's priority, applies the labels, and assigns/moves it to the owning team
+- **THEN** the system sets the ticket's priority and labels (including `support-dev`), and then moves the ticket to the owning team's project
+
+#### Scenario: Cross-project move fails
+
+- **WHEN** the priority/labels are applied but the cross-project move fails (e.g., issue-type or field incompatibility in the target project)
+- **THEN** the system leaves the ticket labeled `support-dev` (so it is skipped on re-run), records the failure in the audit trail, and surfaces it for human completion
 
 #### Scenario: Mechanical steps deferred to Jira-native automation
 
 - **WHEN** a step (e.g., due-date from priority) is handled by existing Jira automation
 - **THEN** the system does not duplicate that step and relies on the Jira-native rule
+
+### Requirement: Low-confidence review label
+
+The system SHALL apply a `needs-review` label when a triage decision is low-confidence, so such tickets are filterable for batch review.
+
+#### Scenario: Low-confidence triage labeled
+
+- **WHEN** a ticket is triaged with low confidence in priority and/or routing
+- **THEN** the system applies the `needs-review` label in addition to posting the low-confidence rationale in the audit comment
 
 ### Requirement: Self-documenting audit comment
 

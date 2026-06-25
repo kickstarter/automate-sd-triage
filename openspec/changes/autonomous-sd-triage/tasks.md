@@ -1,10 +1,13 @@
-## 1. Resolve open questions (do first — they shape the build)
+## 1. Remaining facts to gather (do first — they block actuation/routing)
 
-- [ ] 1.1 Capture the exact intake JQL behind quick filters 1230 + 1264; confirm `support-dev`-absent is a sufficient "untriaged" predicate
-- [ ] 1.2 Determine what "move into a team's space" means mechanically in Jira (Team field vs component vs project/board) and record the write semantics
-- [ ] 1.3 Get an explicit, documented data-handling decision for sending ticket content (incl. PII) to the Claude API; decide on any redaction
-- [ ] 1.4 Decide the no-clear-owner fallback (best-guess + flag vs designated holding team)
-- [ ] 1.5 Agree the would-be override-rate threshold that gates flipping from shadow to live
+- [x] 1.1 Intake JQL captured: `project = SD AND (labels is EMPTY OR labels not in (support-dev))`; `support-dev`-absent confirmed as the untriaged predicate
+- [x] 1.2 Move semantics confirmed: cross-project move into one of the 11 team projects
+- [x] 1.3 Data-handling decided: send as-is, no redaction (record in README)
+- [x] 1.4 No-clear-owner fallback decided: best-guess route + `needs-review` label
+- [x] 1.5 Rollout decided: start live; weekly override-audit job → override logfile
+- [ ] 1.6 Obtain the project **key** for each of the 11 team projects (needed for the move API)
+- [ ] 1.7 Confirm per-target-project issue-type/field compatibility for cross-project moves
+- [x] 1.8 Ownership surfaces confirmed for all 8 live targets; `routing-table.yml` drafted (keyword tuning deferred to post-live)
 
 ## 2. Repo + secrets skeleton (survivability foundation)
 
@@ -15,9 +18,9 @@
 
 ## 3. Configuration as policy
 
-- [ ] 3.1 Create `routing-table.yml` (component/keyword/signal → team) from the Team Directory
-- [ ] 3.2 Add intake-scope config (board/filter criteria) per task 1.1
-- [ ] 3.3 Add a mode flag (`shadow` | `live`) and the no-clear-owner fallback config
+- [ ] 3.1 Create `routing-table.yml` (keyword/signal → team project) for the 11 team projects, including each project key
+- [ ] 3.2 Add intake-scope config (the SD intake JQL from 1.1)
+- [ ] 3.3 Add a mode flag (`shadow` | `live`, defaulting to live) and the no-clear-owner best-guess config
 
 ## 4. Ticket intake
 
@@ -34,21 +37,23 @@
 
 ## 6. Triage actuation
 
-- [ ] 6.1 Apply priority, labels, and team assignment/move to Jira (defer mechanical steps owned by Jira-native automation)
-- [ ] 6.2 Post the self-documenting audit comment (what changed + why + any low-confidence flag)
-- [ ] 6.3 Ensure write semantics are idempotent (no duplicate changes/comments on re-run)
+- [ ] 6.1 Apply priority + labels (incl. `support-dev`) before the move; defer mechanical steps owned by Jira-native automation
+- [ ] 6.2 Perform the cross-project move into the owning team's project; on move failure, leave labeled + record + surface for human completion
+- [ ] 6.3 Apply the `needs-review` label on low-confidence decisions
+- [ ] 6.4 Post the self-documenting audit comment (what changed + why + any low-confidence note)
+- [ ] 6.5 Ensure write semantics are idempotent (no duplicate changes/comments on re-run)
 
 ## 7. Observability + feedback
 
-- [ ] 7.1 Implement shadow mode (log would-be decisions and comment; no writes)
-- [ ] 7.2 Implement the per-run audit trail (tickets considered, decisions, write outcomes)
-- [ ] 7.3 Implement override-rate tracking (detect later human changes to priority/labels/team)
-- [ ] 7.4 Implement the periodic digest (triaged count, routing distribution, low-confidence flags, override rate)
+- [ ] 7.1 Implement shadow mode (log would-be decisions and comment; no writes) as a test/pause switch
+- [ ] 7.2 Implement the per-run audit trail (tickets considered, decisions, write outcomes incl. move failures)
+- [ ] 7.3 Implement the separate weekly override-audit job: detect later human changes to priority/labels/team, append to the override logfile in the repo
+- [ ] 7.4 Implement the periodic digest (triaged count, routing distribution, `needs-review` count, override rate)
 
 ## 8. Scheduling + rollout
 
-- [ ] 8.1 Add the GitHub Actions cron workflow (~every 20 min), starting shadow-only
-- [ ] 8.2 Run shadow mode for the agreed window; review decisions + would-be override rate with the team
-- [ ] 8.3 Tune routing table and priority prompting from shadow findings
-- [ ] 8.4 Flip to live; monitor override rate + weekly digest
+- [ ] 8.1 Add the main GitHub Actions cron workflow (~every 20 min), mode defaulting to live
+- [ ] 8.2 Add the separate weekly cron workflow for the override-audit job
+- [ ] 8.3 Smoke-test in shadow mode against a few real tickets (reads, decisions, move behavior), then enable live
+- [ ] 8.4 Review the override logfile weekly; tune routing table + priority prompting from the data
 - [ ] 8.5 Verify the bot-account swap runbook (dry run of changing secrets) for when an account is available
