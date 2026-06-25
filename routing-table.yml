@@ -6,7 +6,7 @@
 #   still no confident team -> best-guess route + `needs-review` label (never dropped, no holding queue)
 #
 # ┌─────────────────────────────────────────────────────────────────────┐
-# │  TO FILL IN BY HAND: the `key:` field for each team below.           │
+# │             │
 # │  Find it in any ticket URL for that project (e.g. .../browse/CHK-123 │
 # │  -> key is "CHK"). Needed for the cross-project move API.            │
 # └─────────────────────────────────────────────────────────────────────┘
@@ -35,7 +35,7 @@ teams:
 
   # ── Money / commerce ────────────────────────────────────────────────
   - project: "Checkout"
-    key: ""                       # FILL IN
+    key: "CHECK"                       
     owns: >
       Cart and on-session payments (pledge/checkout flow). EXCLUDES creator-facing
       refund workflows (those go to E-Commerce Foundation).
@@ -45,7 +45,7 @@ teams:
                  "on-session payment"]
 
   - project: "E-Commerce Foundation"
-    key: ""                       # FILL IN
+    key: "ECF"                       
     owns: >
       Off-session movement of money (payouts, settlements, recurring/retried charges),
       the tax-compliance backend consumed by Checkout, and effectively the full
@@ -57,14 +57,14 @@ teams:
 
   # ── Product surfaces ────────────────────────────────────────────────
   - project: "Creator Tools Team"
-    key: ""                       # FILL IN
+    key: "CRT"                       
     owns: "Creator-side tooling: project editor, creator dashboard, campaign management, backer reports."
     match_any:
       keywords: ["creator dashboard", "edit project", "project editor", "campaign",
                  "creator settings", "backer report", "creator tools"]
 
   - project: "Discovery"
-    key: ""                       # FILL IN
+    key: "DISC"                       
     owns: "Search, browse, recommendations, category/results pages, ranking."
     match_any:
       keywords: ["search", "browse", "discover", "recommendation", "category",
@@ -72,14 +72,14 @@ teams:
 
   # ── Platform / infra ────────────────────────────────────────────────
   - project: "Infrastructure"
-    key: ""                       # FILL IN
+    key: "INF"                       
     owns: "Platform infrastructure: uptime, latency, deploys, site-wide outages."
     match_any:
       keywords: ["outage", "downtime", "500 error", "site-wide", "latency",
                  "timeout", "deploy", "infra", "cdn", "dns"]
 
   - project: "Product Foundation"
-    key: ""                       # FILL IN
+    key: "PF"                       
     owns: >
       The fundamentals required to be a web app serving web, iOS, and Android
       clients: auth/login, accounts, sessions, notifications, and the shared
@@ -91,7 +91,7 @@ teams:
                  "ios", "android", "mobile app", "web client", "app crash"]
 
   - project: "Internal Services"
-    key: ""                       # FILL IN
+    key: "IS"                       
     owns: >
       Internal / admin tooling, back-office, and staff tools. Also home for
       classifiers such as spam detection and project quality tagging.
@@ -101,7 +101,7 @@ teams:
                  "classifier", "moderation"]
 
   - project: "Flagship"
-    key: ""                       # FILL IN
+    key: "FLG"                       
     owns: >
       Special projects for our largest creators. Rarely a routing target — tends to
       receive only tickets tied directly to a specific project Flagship has released.

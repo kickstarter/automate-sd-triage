@@ -5,7 +5,7 @@
 - [x] 1.3 Data-handling decided: send as-is, no redaction (record in README)
 - [x] 1.4 No-clear-owner fallback decided: best-guess route + `needs-review` label
 - [x] 1.5 Rollout decided: start live; weekly override-audit job → override logfile
-- [ ] 1.6 Obtain the project **key** for each of the 11 team projects (needed for the move API)
+- [x] 1.6 Obtain the project **key** for each of the 11 team projects (needed for the move API)
 - [ ] 1.7 Confirm per-target-project issue-type/field compatibility for cross-project moves
 - [x] 1.8 Ownership surfaces confirmed for all 8 live targets; `routing-table.yml` drafted (keyword tuning deferred to post-live)
 
