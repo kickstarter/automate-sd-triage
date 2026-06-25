@@ -20,11 +20,17 @@ This is a tight team, not a large enterprise, so the design deliberately avoids 
 
 **Non-Goals:**
 
+- Handling SD intake issue types other than Bug, Task, and Query, or field-schema mismatches between SD and target projects (see Assumptions).
 - Resolving or investigating tickets (the receiving team owns the fix; pattern-detection/root-cause work is separate).
 - A pre-action human approval gate (the backstop is downstream by design).
 - Sub-minute reaction time / webhooks (SLAs are in business days/weeks).
 - Re-triaging tickets already handled by a human or the agent.
 - Building a general-purpose triage platform; this targets the SD board specifically.
+
+## Assumptions (this pass)
+
+- **Issue-type mapping on move:** SD intake tickets are Bug, Task, or Query. On the move, **Bug → Bug, Task → Task, and Query → Task** (Query is converted to a Task on the receiving board). Any other SD issue type is out of scope and is surfaced for a human rather than moved.
+- **Field compatibility:** The Bug and Task issue types in every receiving team's project contain **at least the same fields as the corresponding SD source** (a superset) — including SD Query's fields being a subset of the target Task type, since Query converts to Task. This pass therefore assumes a move will not fail due to a missing/required field and does not attempt field remapping. The move-failure safety net (leave labeled, record, surface for a human) remains in place for anything that violates this assumption.
 
 ## Decisions
 
@@ -93,6 +99,7 @@ Intake tickets live in `project = SD`. Routing assigns one of **8 live team proj
 
 - *Why:* This matches the existing board model — the board shows `project = SD` (untriaged) plus `support-dev`-labeled issues across the team projects (triaged).
 - *Trade-off:* a cross-project move is the most fragile write (issue type / field / workflow differences across projects can cause failures). Handled in Risks.
+- *Status normalization:* Jira does not reliably place a moved ticket in the receiving project's start-of-board column — it maps the source status into the target workflow unpredictably. The agent therefore **explicitly transitions the ticket to a configured TODO-equivalent status after the move** (`target_status` default + optional per-team override in `routing-table.yml`, since workflows name that column differently).
 
 ### D11. Low-confidence batch-review label
 
@@ -108,7 +115,7 @@ When decision confidence is low, the agent applies a `needs-review` label (in ad
 - **Running as a personal account looks wrong / breaks on departure** → D6 credential indirection makes the bot swap a secrets-only change; documented as a one-step runbook.
 - **Confluence priority guide changes or moves** → Agent reads it at runtime and fails safe (skips priority change with a flagged comment) if it cannot fetch the guide, rather than guessing.
 - **Ambiguous/no-clear-team tickets in full-auto** → Defined fallback: best-guess route with a `needs-review` label + explicit low-confidence note in the comment, never a silent drop and never a centralized holding queue.
-- **Cross-project move fails (issue type / field / workflow mismatch)** → Apply `support-dev` and all field changes *before* attempting the move; on move failure, leave the ticket labeled (so it is skipped next run), record the failure in the audit trail, and surface it for human completion. Confirm per-target-project issue-type/field compatibility during build.
+- **Cross-project move fails (workflow / unexpected schema mismatch)** → Field compatibility is assumed for Bug/Task/Query (see Assumptions), so this should be rare. Still defended: apply `support-dev` and all field changes *before* attempting the move; on move failure, leave the ticket labeled (so it is skipped next run), record the failure in the audit trail, and surface it for human completion.
 - **Cron overlap or partial failures** → Idempotent by design (D8); a run that fails mid-ticket is safe to re-run because already-labeled tickets are skipped.
 
 ## Migration Plan

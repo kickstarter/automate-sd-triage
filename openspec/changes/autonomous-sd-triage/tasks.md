@@ -6,7 +6,8 @@
 - [x] 1.4 No-clear-owner fallback decided: best-guess route + `needs-review` label
 - [x] 1.5 Rollout decided: start live; weekly override-audit job → override logfile
 - [x] 1.6 Obtain the project **key** for each of the 11 team projects (needed for the move API)
-- [ ] 1.7 Confirm per-target-project issue-type/field compatibility for cross-project moves
+- [x] 1.7 Field compatibility decided: assume Bug/Task/Query types in target projects are a superset of SD fields; no field remapping this pass (move-failure safety net retained)
+- [ ] 1.9 Confirm each target project's TODO-equivalent status name; set `target_status` default + any per-team overrides in `routing-table.yml`
 - [x] 1.8 Ownership surfaces confirmed for all 8 live targets; `routing-table.yml` drafted (keyword tuning deferred to post-live)
 
 ## 2. Repo + secrets skeleton (survivability foundation)
@@ -38,7 +39,8 @@
 ## 6. Triage actuation
 
 - [ ] 6.1 Apply priority + labels (incl. `support-dev`) before the move; defer mechanical steps owned by Jira-native automation
-- [ ] 6.2 Perform the cross-project move into the owning team's project; on move failure, leave labeled + record + surface for human completion
+- [ ] 6.2 Perform the cross-project move into the owning team's project, mapping issue type (Bug→Bug, Task→Task, Query→Task); on move failure, leave labeled + record + surface for human completion
+- [ ] 6.2a After the move, force the ticket to the receiving team's configured TODO-equivalent status; if the transition is unreachable, record + surface for human completion
 - [ ] 6.3 Apply the `needs-review` label on low-confidence decisions
 - [ ] 6.4 Post the self-documenting audit comment (what changed + why + any low-confidence note)
 - [ ] 6.5 Ensure write semantics are idempotent (no duplicate changes/comments on re-run)

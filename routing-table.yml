@@ -21,6 +21,12 @@ version: 1
 defaults:
   fallback: best_guess          # best-guess route; never drop a ticket
   low_confidence_label: needs-review
+  # After the cross-project move, force the ticket into the receiving team's
+  # start-of-board column. Jira does NOT do this reliably on its own.
+  # This default is used unless a team sets its own `todo_status:` override below.
+  target_status: "To Do"        # EDIT if your default start column is named differently
+  # For any team whose first column is named differently (e.g. "Backlog", "New"),
+  # add a `todo_status: "<name>"` line under that team to override the default.
 
 # Cross-cutting hints for the LLM fallback when deterministic rules don't fire.
 routing_hints:
