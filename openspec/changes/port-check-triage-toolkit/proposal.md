@@ -20,6 +20,7 @@ foundation; it does not build the automation on top of it yet.
   is `project = CHKT` with `CHECK-*` issue keys (`labels = support-dev OR parent = CHECK-105`). All
   three skills are unified onto the actual board. Note that the `CHKT` key is legacy--we migrated the whole space to `CHECK` shortly after creating it. Eventually we should be able to remove `CHKT` from queries, but it's worth adding when we unexpectedly see empty results.
 - **Make this easy to share with other spaces than CHECK.** Offer an option to pass a different space via a convenient interface, so that as I iterate on this I can bring others along to try it out.
+- **Onboard other users via the repo README.** Replace the stub `README.md` with setup instructions for another person to run the toolkit on their own machine: prerequisites (Claude Code; the kickstarter/rosie/rosie-api/looker repos cloned for remediation work; CHECK Jira access), which MCP connectors to connect and authenticate (Atlassian, Guru, Looker), how the skills load automatically once the repo is open in Claude Code (no copy step — `.claude/` ships with the repo), how to register their own space in `references/spaces.md`, the human-in-the-loop safety posture, and first prompts to validate the install.
 - **Promote the safety posture from role "tone" to a first-class, testable requirement.** Remediations
   are *prepared, never executed*; dry-run before live; trace blast radius before claiming
   project-wide scope; suspended Stripe capabilities → stop and route to T&S; resolve rosie vs
@@ -28,7 +29,8 @@ foundation; it does not build the automation on top of it yet.
   routing triggers, behavior guidelines) is adapted into repo-native context/config rather than a
   prompt pasted into a claude.ai project.
 - **Carry over the connector contract.** Document the required MCP servers per skill — Atlassian
-  (Jira + Confluence) and Guru — so the repo states its runtime dependencies explicitly.
+  (Jira + Confluence), Guru, and Looker (read-only, cross-system data) — so the repo states its
+  runtime dependencies explicitly.
 - **Lay the groundwork for automation without building it.** Structure the skills as the reusable,
   trusted primitives that a future scheduled "due-today" routine can wrap. The routine itself is a
   **non-goal** for this change — per the toolkit's own guidance, automation is built on top only once
@@ -56,11 +58,13 @@ foundation; it does not build the automation on top of it yet.
 ## Impact
 
 - **New repo artifacts**: triage skills under `.claude/skills/` (mirroring the existing
-  `openspec-*` skill layout), their `references/` docs, and repo-native role/context (e.g. a
-  `CLAUDE.md` or agent definition).
+  `openspec-*` skill layout), their `references/` docs, repo-native role/context (e.g. a
+  `CLAUDE.md` or agent definition), and a rewritten `README.md` with multi-machine setup
+  instructions.
 - **Runtime dependencies**: Atlassian MCP (Jira + Confluence) for all skills; Guru MCP for
-  `check-remediation`. No application code or services are added in this change.
-- **External systems referenced (read/prepare only)**: the CHECK Jira space, unless an alternative space is specified, the Confluence priority guide, Guru runbooks, and — for remediation snippets — the rosie production console and `lib/support_tasks/` service objects (branch `main`). This change writes none of these; it produces prepared steps for a human.
+  `check-remediation`; Looker MCP (read-only) for cross-system diagnosis and scope confirmation. No
+  application code or services are added in this change.
+- **External systems referenced (read/prepare only)**: the CHECK Jira space, unless an alternative space is specified, the Confluence priority guide, Guru runbooks, Looker (read-only, models both rosie and kickstarter data) for diagnosis and scope, and — for remediation snippets — the rosie and kickstarter production consoles and their `lib/support_tasks/` service objects (rosie on branch `main`). This change writes none of these; it produces prepared steps for a human.
 - **Behavioral correction**: anyone currently invoking the `SD`-board skills must move to the
   CHECK/CHKT board. This is the only breaking change to existing behavior, and it corrects a known
   placeholder rather than altering intended function.
