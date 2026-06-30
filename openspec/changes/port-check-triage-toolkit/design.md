@@ -19,9 +19,14 @@ Constraints carried from the proposal:
 - The toolkit must be **shareable to other spaces** via a convenient interface.
 - `check-remediation` now **posts prepared snippets as Jira comments**, prefixed
   `Experimental: Suggested Remediation.`
-- Remediations draw on **two** support-task libraries — rosie `lib/support_tasks/` (on `main`,
-  PLOT/increments/Stripe) and kickstarter `lib/support_tasks/` (~37 tasks: backings, pledges,
-  projects, users) — each run in its **own** production console.
+- Remediations draw on **two** support-task libraries — rosie `lib/support_tasks/` and kickstarter
+  `lib/support_tasks/` (~37 tasks: backings, pledges, projects, users) — each run in its **own**
+  production console. Branch reality is mixed: rosie's PLOT/increment-sync/refund tasks
+  (`SyncIncrementalPledgeToStripe`, the increment refunds) live only on the working branch
+  `demo/stripe-sync-plan-apply`; `reactivate_pledge_from_pledged_backing` and the general payments
+  tasks are on `main`.
+- Remediations link to code, not just inline snippets. When a fix would modify an on-`main` support
+  task or warrant a new task file, a working branch holding the prototype is opened and linked.
 - **Looker** is a connected, read-only warehouse modeling **both** systems (`rosie_*` views:
   pledges, payment_increments, payment_intents, funds_captures, errored_pledges_over_time; `ksr_*`
   views: backings, PLOT configs; `cs.model`: Zendesk ↔ backings/projects/users). It is the safe way
@@ -137,9 +142,10 @@ stays in `remediation-catalog.md`, which the safety section links to.
 
 - *Why one source:* prevents drift between skills and keeps the "what keeps automation safe" answer in
   one reviewable place.
-- *rosie branch:* update the catalog's service-object references from `demo/stripe-sync-plan-apply` to
-  `main`, and keep the existing instruction to confirm the path at runtime if a `require_relative`
-  is missing.
+- *rosie branch:* record each task's actual branch in the catalog (PLOT tasks on
+  `demo/stripe-sync-plan-apply`; `reactivate` + general payments on `main`) rather than assuming
+  `main`, and keep the instruction to confirm the path at runtime if a `require_relative` is missing.
+  See Decision 8 for the prototype-branch workflow.
 
 ### 6. Remediation spans two support-task systems; route by system, not by guess
 
@@ -197,6 +203,56 @@ classify ──▶ diagnose in Looker ──▶ confirm scope in Looker ──�
 - *Alternative considered:* keep all reads in the production console (status quo). Rejected — it puts
   an operator in a production console for routine triage, which is exactly the exposure we want to
   remove.
+- *Graceful degradation (Looker is not a hard dependency):* if the Looker connector can't be reached,
+  the skills proceed without it — falling back to ticket/CS context and human-run console reads, and
+  explicitly flagging that Looker scope-confirmation was skipped (so scale/scope claims are caveated).
+  They never fabricate the figures Looker would have given. This degrades diagnosis breadth, not write
+  safety — the authoritative just-before-write check is in-console regardless. (Observed live: the
+  connector required interactive auth and was unavailable during a demo run.)
+
+### 8. Remediations are backed by prototype working branches, linked from the Jira comment
+
+A prepared remediation is not only an inline console snippet. When a fix would **modify an existing
+support task that is on `main`**, or when it **would make sense as a new support-task file**,
+`check-remediation` opens a **working branch** in the relevant repo (rosie or kickstarter, per the
+system tag) holding the prototype implementation, so the team can examine and test it with one-off
+remediations. The `Experimental: Suggested Remediation.` Jira comment then carries **both**:
+
+- **link(s)** to the prototype branch/code, and
+- the **actual code blocks** to run — which may include defining a new class inline for a single
+  console session (the `require_relative`/paste-into-console pattern the existing
+  `demo/stripe-sync-plan-apply` branch already demonstrates).
+
+- *Why:* it makes a remediation reviewable as real code (diff-able, testable) rather than a snippet in
+  a comment, and gives a clear path from "one-off console fix" to "promote the task to `main`."
+- *When a working branch is NOT needed:* the fix uses an existing task as-is (link to it at its current
+  branch/path; inline the call). A branch is opened only for a modification-to-`main` or a new task.
+- *Git-write boundary (safety):* creating a local working branch and committing prototype code is an
+  allowed, reversible, clearly-scoped write. **Pushing** that branch to origin (needed to produce a
+  shareable link) is outward-facing and is **confirmed before pushing**, consistent with
+  confirm-before-write. The prototype is for examination/testing; production runs remain human-only and
+  dry-run-first.
+- *Branch reality, recorded not hidden:* the catalog records each task's actual branch. rosie's PLOT
+  tasks are on `demo/stripe-sync-plan-apply` today; that branch IS the prototype branch for them. The
+  catalog instructs confirming the branch/path at runtime before relying on a `require_relative`.
+
+### 9. The living `main` repos are the source of truth for available tasks; the catalog is examples
+
+The authoritative answer to "which support tasks exist" is the **living `main` of the kickstarter and
+rosie GitHub repos** — verified at runtime (`gh`/`git ls-tree origin/main -- lib/support_tasks/`), not a
+static list. The `remediation-catalog`'s task tables are **curated examples**: the common remediations
+and the symptom→task mapping, useful for prompting, but neither exhaustive nor guaranteed current.
+
+- *Why:* a hardcoded inventory goes stale the moment a task is added, renamed, or promoted from a
+  branch. Reading the live repo keeps the toolkit correct as the codebases evolve, and uses the
+  examples only to steer — not to constrain.
+- *Interaction with Decision 8:* "available" means on `main`. A task not on `main` (the PLOT tasks
+  today) is a prototype on a working branch by definition — exactly the case Decision 8 handles.
+- *What the catalog still owns:* the symptom→remediation **mapping**, the ID/console conventions, the
+  Looker diagnosis paths, the pre-flight, and the blast-radius lesson — judgment and conventions, not
+  the inventory.
+- *Alternative considered:* treat the catalog as the authoritative task list and regenerate it each
+  run. Rejected — it duplicates what the repo already is and drifts between regenerations.
 
 ## Risks / Trade-offs
 
@@ -220,6 +276,9 @@ classify ──▶ diagnose in Looker ──▶ confirm scope in Looker ──�
   Looker but was already fixed) → Looker is for triage/scope/diagnosis only; the authoritative
   just-before-write state check happens in-console/Stripe immediately before the dry-run, never from
   Looker.
+- **Prototype working branches proliferate or leak into production** → branches are clearly named as
+  experimental prototypes, pushing to origin is confirm-gated, and they hold prototype code for review
+  — not a deployment path. Promotion to `main` is normal PR review, out of this toolkit's scope.
 - **Role routing duplicated between `CLAUDE.md` and skill descriptions drifts** → skill `description`s
   are authoritative for triggering; the `CLAUDE.md` map is explicitly "human reference only."
 
