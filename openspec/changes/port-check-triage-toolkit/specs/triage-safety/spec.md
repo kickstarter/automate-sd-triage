@@ -35,7 +35,9 @@ before running live.
 Cross-system diagnosis and scope confirmation SHALL use Looker (read-only) by default. A production
 console SHALL be opened only for the human-run write. Because Looker lags production, the
 authoritative just-before-write state check SHALL be performed in-console (or against Stripe), never
-from Looker.
+from Looker. When Looker cannot be reached, the toolkit SHALL proceed without it — falling back to
+ticket/CS context and human-run console reads, flagging that Looker scope-confirmation was skipped,
+and never fabricating the data Looker would have provided.
 
 #### Scenario: Diagnosing and confirming scope
 
@@ -49,6 +51,12 @@ from Looker.
   `succeeded`")
 - **THEN** that authoritative check is taken in-console/Stripe immediately before the dry-run, not
   from Looker
+
+#### Scenario: Looker is unavailable
+
+- **WHEN** the Looker connector cannot be reached
+- **THEN** the toolkit proceeds using ticket/CS context and human-run console reads, flags that Looker
+  scope-confirmation was skipped, and does not fabricate the figures Looker would have provided
 
 ### Requirement: Confirm before any Jira write
 

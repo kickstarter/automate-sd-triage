@@ -31,19 +31,19 @@ focused question and default to all open tickets in the space if none is given:
 
 Build JQL from the resolved space row: lead with `project = <primary_key>` and the row's
 `scope_filter`. On an **unexpected-empty** result, retry once widening to the row's `legacy_keys`
-(`project in (CHECK, CHKT) …`) and tell the EM the fallback fired.
+(`project in ("CHECK", "CHKT") …`) and tell the EM the fallback fired.
 
 Example patterns (CHECK):
 
 ```
 # All open
-project = CHECK AND (labels = support-dev OR parent = CHECK-105) AND statusCategory != Done ORDER BY priority ASC, created DESC
+project = "CHECK" AND (labels = support-dev OR parent = "CHECK-105") AND statusCategory != Done ORDER BY priority ASC, created DESC
 
 # Open Highest + High
-project = CHECK AND (labels = support-dev OR parent = CHECK-105) AND priority in (Highest, High) AND statusCategory != Done ORDER BY created DESC
+project = "CHECK" AND (labels = support-dev OR parent = "CHECK-105") AND priority in (Highest, High) AND statusCategory != Done ORDER BY created DESC
 
 # Overdue
-project = CHECK AND (labels = support-dev OR parent = CHECK-105) AND statusCategory != Done AND due < now() ORDER BY due ASC
+project = "CHECK" AND (labels = support-dev OR parent = "CHECK-105") AND statusCategory != Done AND due < now() ORDER BY due ASC
 ```
 
 Request: `summary`, `description`, `priority`, `status`, `created`, `updated`, `due`, `labels`,
@@ -55,11 +55,14 @@ EM the total.
 
 ## Step 3: Pull the priority guide
 
-Read the space row's `priority_guide` Confluence URL and hold its definitions for Step 4. If the row
-has **no** guide, or it can't be retrieved, use the fallback framework below and note that the
-internal guide wasn't used.
+Resolve the guide in order: (1) the row's `priority_guide` (primary); (2) its `priority_guide_fallback`
+if the primary is blank or can't be retrieved; (3) the built-in framework below if neither is
+available. Hold the chosen guide's definitions for Step 4, and note in the report which tier you used.
 
-**Fallback priority framework (only if no guide available):**
+For CHECK the primary is the **SD Ticket Priorities Framework for Checkout**; the fallback is the
+**Quick Priority / SLA Reference**.
+
+**Built-in fallback framework (only if no guide available):**
 
 | Label | Criteria |
 |-------|----------|
@@ -93,6 +96,9 @@ Use the Looker MCP to ground affected-user/scale numbers rather than guessing fr
 `rosie_errored_pledges_over_time` (counts by project/backer) for PLOT-flavored issues, or `cs.model`
 (Zendesk ↔ backings/projects) for how many backers/tickets cluster on a project. Looker is read-only;
 it can't change anything.
+
+**If Looker can't be reached, proceed without it:** assess scale from the ticket/CS context, mark the
+affected-count as unverified, and lower confidence accordingly. Never fabricate a count.
 
 ### 4b. Per-ticket verdict
 

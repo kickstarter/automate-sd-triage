@@ -29,8 +29,8 @@ Sources:
 Useful JQL (CHECK):
 
 ```
-project = CHECK AND (labels = support-dev OR parent = CHECK-105) AND labels = "payment-failures" AND statusCategory != Done
-project = CHECK AND (labels = support-dev OR parent = CHECK-105) AND created >= -14d AND statusCategory != Done ORDER BY created DESC
+project = "CHECK" AND (labels = support-dev OR parent = "CHECK-105") AND labels = "payment-failures" AND statusCategory != Done
+project = "CHECK" AND (labels = support-dev OR parent = "CHECK-105") AND created >= -14d AND statusCategory != Done ORDER BY created DESC
 ```
 
 Fetch full descriptions, all comments, linked Zendesk issues, labels, components, and reporter notes.
@@ -49,7 +49,9 @@ Fetch full descriptions, all comments, linked Zendesk issues, labels, components
 - **Absent root cause** — individually ambiguous but collectively suggestive; same workaround across
   tickets (consistent failure mode)?
 
-Looker is read-only — use it to ground cohort/scale signal, not to change anything.
+Looker is read-only — use it to ground cohort/scale signal, not to change anything. **If Looker can't
+be reached, proceed without it:** infer cohort overlap from ticket descriptions and CS notes, and mark
+it as unconfirmed. Never fabricate cohort/scale figures.
 
 ---
 

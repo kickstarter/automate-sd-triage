@@ -203,6 +203,12 @@ classify ──▶ diagnose in Looker ──▶ confirm scope in Looker ──�
 - *Alternative considered:* keep all reads in the production console (status quo). Rejected — it puts
   an operator in a production console for routine triage, which is exactly the exposure we want to
   remove.
+- *Graceful degradation (Looker is not a hard dependency):* if the Looker connector can't be reached,
+  the skills proceed without it — falling back to ticket/CS context and human-run console reads, and
+  explicitly flagging that Looker scope-confirmation was skipped (so scale/scope claims are caveated).
+  They never fabricate the figures Looker would have given. This degrades diagnosis breadth, not write
+  safety — the authoritative just-before-write check is in-console regardless. (Observed live: the
+  connector required interactive auth and was unavailable during a demo run.)
 
 ### 8. Remediations are backed by prototype working branches, linked from the Jira comment
 

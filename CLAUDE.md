@@ -55,7 +55,10 @@ These govern every skill. They are requirements, not suggestions.
   behind reading the dry-run report.
 - **Reads via Looker; consoles for writes.** Diagnose and confirm scope through Looker (read-only).
   Open a production console only for the human-run write. Looker lags production — take the
-  authoritative just-before-write state check in-console/Stripe, never from Looker.
+  authoritative just-before-write state check in-console/Stripe, never from Looker. **If Looker can't
+  be reached, proceed without it:** fall back to ticket/CS context and human-run console reads, state
+  plainly that Looker scope-confirmation was skipped (so any scale/scope claim is caveated), and never
+  fabricate the figures Looker would have provided.
 - **Confirm before any Jira write** — priority changes, comments, ticket creation, links.
 - **Suspended Stripe capabilities → stop, route to Trust & Safety.** That path is not a Support Dev
   fix.

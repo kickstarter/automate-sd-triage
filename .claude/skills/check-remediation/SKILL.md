@@ -47,7 +47,7 @@ Build JQL from the space row (CHECK shown), leading with `primary_key` + `scope_
 CHECK/CHKT legacy fallback on unexpected-empty (announce when used):
 
 ```
-project = CHECK AND (labels = support-dev OR parent = CHECK-105) AND status != Done AND duedate = "2026-06-25" ORDER BY duedate ASC
+project = "CHECK" AND (labels = support-dev OR parent = "CHECK-105") AND status != Done AND duedate = "2026-06-25" ORDER BY duedate ASC
 ```
 
 Request: `summary`, `description`, `status`, `priority`, `labels`, `duedate`, `parent`, `assignee`,
@@ -68,7 +68,10 @@ diagnostic dry-run, not a state change.
 ## Step 4: Diagnose in Looker, then resolve ids
 
 - **Diagnose read-only in Looker** (catalog "Diagnosis via Looker"): increment/pledge/PI state, and
-  affected scope. Do not open a production console to read.
+  affected scope. Do not open a production console to read. **If Looker can't be reached, proceed
+  without it:** fall back to the ticket's embedded diagnosis/CS context and human-run console reads,
+  and flag that Looker scope-confirmation was skipped. The authoritative just-before-write check is
+  in-console regardless, so this degrades diagnosis breadth, not write safety. Never fabricate state.
 - **Resolve ids for the routed system** (catalog ID conventions): kickstarter console → kickstarter
   `Backing.find(<admin-URL id>)`; rosie console → `Pledge.find_by(client_id: 1, foreign_key: <backing
   id>)` then `pledge.id`. Per-increment commands also need the `PaymentIncrement` id from the pledge
