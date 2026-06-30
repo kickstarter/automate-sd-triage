@@ -110,12 +110,53 @@ fix.
 - **WHEN** a ticket is a code/template rendering bug
 - **THEN** the skill states there is no console remediation and routes it to engineering
 
+### Requirement: Treat the living main repos as the source of truth for available tasks
+
+`check-remediation` SHALL verify which support tasks are available against the living `main` of the
+kickstarter and rosie GitHub repos at runtime, and SHALL treat the remediation catalog's task tables as
+curated examples rather than an exhaustive or authoritative inventory. A task not present on `main`
+SHALL be treated as a prototype on a working branch (per the prototype-branch requirement), not a
+generally-available task.
+
+#### Scenario: Choosing a task to recommend
+
+- **WHEN** the skill selects a support task for a remediation
+- **THEN** it confirms the task exists on the repo's live `main` before relying on it, rather than
+  assuming the catalog listing is current
+
+#### Scenario: Catalog lists a task not on main
+
+- **WHEN** a catalog example names a task that is not on `main` (e.g. a PLOT task on a working branch)
+- **THEN** the skill treats it as a prototype and follows the prototype-branch workflow
+
+### Requirement: Back remediations with a prototype working branch when code changes are implied
+
+`check-remediation` SHALL open a working branch in the relevant repo (rosie or kickstarter, per the
+system tag) holding a prototype when a remediation would modify a support task that is on `main` or
+would make sense as a new support-task file, so the team can examine and test it with one-off
+remediations. When the fix uses an existing task as-is, no branch is needed and it SHALL link to that
+task at its current branch/path instead. Pushing a working branch to origin (to produce a shareable
+link) SHALL be confirmed before pushing, consistent with `triage-safety`; prototype code is for
+review and is never executed in production by the toolkit.
+
+#### Scenario: Remediation implies a new or modified support task
+
+- **WHEN** the fix would change an on-`main` support task or warrant a new task file
+- **THEN** the skill prepares a prototype on a working branch in the correct repo and confirms before
+  pushing it to origin
+
+#### Scenario: Remediation uses an existing task unchanged
+
+- **WHEN** the fix runs an existing support task as-is
+- **THEN** the skill links to that task at its current branch/path and opens no working branch
+
 ### Requirement: Post prepared remediations to Jira as labeled, confirmed, idempotent comments
 
 `check-remediation` SHALL, when it posts a prepared remediation to a card, post it as a Jira comment
 whose first line is exactly `Experimental: Suggested Remediation.`, only after operator confirmation,
-with only prepared (dry-run-first, id-resolved) snippets, and idempotently — checking for an existing
-such comment and updating or skipping rather than stacking duplicates.
+and idempotently — checking for an existing such comment and updating or skipping rather than stacking
+duplicates. The comment SHALL contain the prepared (dry-run-first, id-resolved) code blocks and, when
+a prototype working branch was opened, link(s) to that branch/code.
 
 #### Scenario: Posting a suggestion
 
