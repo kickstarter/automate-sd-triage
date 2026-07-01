@@ -60,7 +60,10 @@ MCP writes it to a file, extract fields with `jq` rather than re-reading the who
 
 Pull ids/links from the description (pledge/order/project/user admin URLs, Stripe links, ZD ticket) and
 map the symptom to a failure class using the catalog's **symptom → remediation map**. Note the `system`
-(rosie | kickstarter) the class routes to. When the class is ambiguous, say so and lead with a
+(rosie | kickstarter) the class routes to. **Weigh the ticket's own description over triage comments**
+(CS/Rovo auto-triage) when they disagree — a comment's framing ("backer appears double-charged") is a
+hypothesis, not a confirmed diagnosis; the catalog's "Duplicate-charge vs. state-drift lesson" is a
+concrete case of this going wrong (CHECK-306). When the class is ambiguous, say so and lead with a
 diagnostic dry-run, not a state change.
 
 ---
@@ -84,7 +87,9 @@ diagnostic dry-run, not a state change.
 From the catalog's `system` tag, open the named console — **never infer it**:
 
 - **rosie** → `cd rosie && ksr console production`; rosie pledge ids; confirm the task's branch
-  (PLOT-sync/refund tasks are on `demo/stripe-sync-plan-apply`, not `main`).
+  (PLOT-sync/refund tasks are on `demo/stripe-sync-plan-apply`, not `main`). **A task not on `main`
+  can't be `require_relative`'d from a production checkout** — the snippet must paste the class body
+  into the console session instead (see Step 7).
 - **kickstarter** → kickstarter production console; kickstarter ids.
 
 Running a kickstarter task in the rosie console (or passing the wrong system's id) is the
@@ -119,7 +124,10 @@ plainly and name who it routes to. Never invent a fix.
 
 Per the catalog's prototype-branch workflow:
 
-- **Existing task, as-is** → link it at its current branch/path; no new branch.
+- **Existing task, as-is** → link it at its current branch/path; no new branch. **If that branch isn't
+  `main`, `require_relative` won't resolve in a production console** — say so in the snippet, and
+  instruct copying the class body from the linked branch and pasting it directly into the console
+  session to define it there, then calling `.perform`.
 - **Modifies an on-`main` task, or a new task file makes sense** → open a **working branch** in the
   relevant repo (rosie or kickstarter, per the system tag) with the prototype implementation so it can
   be examined and tested with one-off remediations. **Confirm before pushing** the branch to origin
