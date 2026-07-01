@@ -2,18 +2,21 @@
 
 # CHECK-304 — PLOT installment not attempted, still errored
 
-**Refined 2026-07-01** — the remediation posted in
+**Refined 2026-07-01, then confirmed in production the same day** — the remediation posted in
 [comment 152361](https://kickstarter.atlassian.net/browse/CHECK-304?focusedCommentId=152361) picked
 between two branches without ever inspecting the pledge's own `state`. The EM pointed to the Guru "PLOT
-Retry/Resurrect" card, which matches this ticket's shape more precisely. See "Why this refinement"
-below — the original two branches are kept, now as explicit fallbacks gated behind a state check instead
-of a guess.
+Retry/Resurrect" card, ran the corrected sequence, and it worked: increment #1007462 collected on the
+visa ending `0643`, future installments rescheduled for 7/4 and 8/4 (see the ticket's Decision Log and
+[comment 152370](https://kickstarter.atlassian.net/browse/CHECK-304?focusedCommentId=152370)). See "Why
+this refinement" below — the original two branches are kept, now as explicit fallbacks gated behind a
+state check instead of a guess.
 
 | Field | Value |
 |---|---|
 | Priority | High |
-| Classification | Collection never ran — likely a **dropped pledge** (`state: inactive`, dibs released), pending inspection |
-| Confidence | Medium (unchanged — now backed by a state check instead of a guess) |
+| Classification | Collection never ran — confirmed **dropped pledge** (`state: inactive`, dibs released; no payment source, no funds capture ever created) |
+| Confidence | High (confirmed via the ticket's Decision Log: `pledge.payment_source` was `nil`, `increment.funds_capture` was `nil`) |
+| Status | **Resolved 2026-07-01** — reactivation, redib, and collection all succeeded in production |
 | System | rosie |
 | Pledge | https://www.kickstarter.com/admin/pledges/194526562 |
 | Project | https://www.kickstarter.com/admin/projects/5269345 (shared with CHECK-250) |
@@ -55,8 +58,12 @@ Branch on `pledge.state` from the inspection above.
 
 **If `pledge.state == "inactive"` (dropped — matches this ticket's symptom):**
 
-Get the backer's confirmation of which saved card to use before running this — per the Guru card's
-prerequisite, this is a customer-facing decision, not ours to guess.
+> **Required input: `target_last4`.** Which saved card the backer wants used is a customer-facing
+> decision this remediation cannot infer from rosie state alone — name it as a prerequisite, don't treat
+> the placeholder below as a formality. On this ticket it was **inferred**, not asked fresh — from the
+> Zendesk ticket text plus the customer's recent Stripe activity (`target_last4 = "0643"`). State
+> explicitly whether your value is *confirmed* (backer said so) or *inferred* (from context): a wrong
+> card here reattempts a real charge against the wrong instrument.
 
 ```ruby
 target_payment_source = pledge.user.payment_sources.active.find { _1.provider&.credit_card&.last4 == target_last4 }
@@ -79,6 +86,13 @@ result = pledge.with_lock do
     ).call
   end
 end
+
+# A dropped pledge's future-increment jobs don't survive reactivation — they are NOT recreated
+# automatically. Check, then (re)schedule the next one:
+next_payment_increment = pledge.payment_increments.collected.last&.next_attemptable
+existing_jobs = T.unsafe(FundsCaptures::IncrementalPledgeCollectionJob).jobs_with_args(pledge_id: pledge.id)
+raise "a job is already scheduled for this pledge — investigate before proceeding" if existing_jobs.present?
+FundsCaptures::IncrementalPledgeCollectionJob.create(pledge.id, next_payment_increment.id, nil, run_at: next_payment_increment.scheduled_collection) if next_payment_increment
 ```
 
 **If `pledge.state` is already `"active"` or `"collecting"` (increment itself is just stuck — no
@@ -140,7 +154,12 @@ needed (these are autoloaded `app/services` classes, not `lib/support_tasks/`).
 which. On success: a Stripe PaymentIntent appears for the backer's card, and the increment flips to
 `collected`. On failure: the increment goes back to `errored` with a `state_reason` (e.g. the card was
 genuinely declined) — that's a legitimate outcome, not a bug in the remediation, and routes back to the
-backer for a different card.
+backer for a different card. Also confirm a job now exists for the *next* increment (see the reschedule
+step above) — don't assume it survived reactivation.
+
+**Confirmed on this ticket:** `Outcomes::Success` on both `Pledges::Update` and
+`PaymentIncrements::CollectPaymentIncrement`; increment #1007462 collected on the visa ending `0643`;
+`FundsCaptures::IncrementalPledgeCollectionJob` recreated for increment #1007463 (scheduled 7/4).
 
 ## Citation
 

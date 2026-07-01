@@ -24,6 +24,11 @@ conventions; the **living `main` of the kickstarter/rosie GitHub repos is the so
 tasks actually exist** — its task tables are curated examples, so verify availability against live
 `main` at runtime. This file is the procedure.
 
+The catalog's Guru index is a **curated subset of Guru, not a mirror of it** — when the ticket's
+symptom doesn't cleanly match a cataloged row, or the matched row feels generic for this ticket's
+specific shape, **search Guru directly before finalizing** (see Step 6). A more targeted runbook can
+exist even for an already-cataloged symptom class.
+
 ---
 
 ## Step 1: Resolve the space and due date
@@ -103,11 +108,21 @@ it isn't on `main`, treat it as a prototype: link the working branch and follow 
 
 ## Step 6: Write the remediation per ticket
 
+**Before finalizing, search Guru if the catalog's match is generic or doesn't cleanly fit this ticket's
+specific symptom** — don't settle for the first plausible catalog row. (CHECK-304: the catalog only had
+"Troubleshooting PLOT collections," a generic re-drive card; a fresh Guru search turned up "PLOT
+Retry/Resurrect," which matched the ticket's dropped-pledge symptom precisely and changed the
+remediation entirely.)
+
 Produce:
 
 1. **Classification + confidence** (high / medium / needs-diagnosis) and the routed `system`.
 2. **Pre-flight** — the catalog's standard checks (capabilities, Stripe PI status confirmed
-   in-console, dry-run).
+   in-console, dry-run) — **and any input the fix needs that nobody has supplied yet** (e.g. which
+   saved card/payment source to use for a redib). Name it as an explicit prerequisite rather than
+   picking one implicitly. It may be inferable from context already on the ticket (Zendesk text, the
+   customer's recent Stripe activity) instead of a fresh ask — if so, say where it came from; if not,
+   name it as a blocker and who to ask.
 3. **Remediation steps** — exact console snippets, dry-run before live, ids resolved and labeled,
    preferred service-object path first with the Guru manual equivalent as cross-check.
 4. **Code link** — link the support task at its branch/path. If the fix would modify an on-`main` task

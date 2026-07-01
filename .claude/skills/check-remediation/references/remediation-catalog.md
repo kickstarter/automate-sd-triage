@@ -111,14 +111,19 @@ Run in the kickstarter production console; operate on **kickstarter** ids (`Back
 |---|---|---|
 | Remediating Errored PLOT Payments | https://app.getguru.com/card/ibxroprT/Remediating-Errored-PLOT-Payments | Suspended Stripe capabilities (→ T&S) and payment-already-succeeded (→ flip increment to `collected`). |
 | Troubleshooting PLOT collections | https://app.getguru.com/card/TgXyyRyc/Troubleshooting-PLOT-collections | Pledge with no increments; re-run `Pledges::Collect`; collect outside the normal window. |
-| PLOT Retry / Resurrect | https://app.getguru.com/card/cAzenGei/PLOT-Retry-Resurrect-How-to-manually-update-payment-source-for-PLOT-Pledge-Over-Time-and-retry-payment-for-a-dropped-pledge | "Undrop" an `INACTIVE` PLOT pledge (dibs released) and reattach a payment source: raw `state: Pledge::COLLECTING` write → `Pledges::Update` (redib) → `PaymentIncrements::CollectPaymentIncrement` on the specific increment. Also the source of the `backing.rosie_pledge.state` backing-resync pattern used in the `ResyncBackingWithPledge` gap above. |
+| PLOT Retry / Resurrect | https://app.getguru.com/card/cAzenGei/PLOT-Retry-Resurrect-How-to-manually-update-payment-source-for-PLOT-Pledge-Over-Time-and-retry-payment-for-a-dropped-pledge | "Undrop" an `INACTIVE` PLOT pledge (dibs released) and reattach a payment source: raw `state: Pledge::COLLECTING` write → `Pledges::Update` (redib) → `PaymentIncrements::CollectPaymentIncrement` on the specific increment. **After that succeeds, check for and (re)schedule the *next* increment's `FundsCaptures::IncrementalPledgeCollectionJob`** — a dropped pledge's future jobs don't survive reactivation, they don't get recreated automatically (confirmed on CHECK-304: `jobs_with_args(pledge_id:)` came back empty post-fix and had to be created manually). Also the source of the `backing.rosie_pledge.state` backing-resync pattern used in the `ResyncBackingWithPledge` gap above. |
 | Campaigns::CollectJob - CollectionBlocked | https://app.getguru.com/card/pc5L9ybc/CampaignsCollectJob-CollectionBlocked | Backing↔pledge count/amount conflicts, orphaned backings, shared pledge keys, resync. |
 | Unsettled Backings | https://app.getguru.com/card/iedA66bT/Unsettled-Backings | Backings that missed the pledge-collected signal — `ResyncBackingWithPledge`. |
 | Who can enter in Pledge Manager? | https://app.getguru.com/card/TxGM4pXc/Who-can-enter-in-Pledge-Manager- | Auto-exempt semantics; re-entry after completed checkout normally disallowed. |
 | Pledge Manager - Backer Overview | https://app.getguru.com/card/cay9g5ei/Pledge-Manager-Backer-Overview | Admin "Refresh order" as first-line for stuck PM orders. |
 | Manual payouts | https://app.getguru.com/card/9cebEq5c/Manual-payouts | Payout retries, wrong-account reversals, out-of-system payouts. |
 
-Search Guru (Support team bot) for anything not listed — this catalog is not exhaustive.
+**Search Guru directly whenever the matched row above feels generic or approximate for the ticket's
+specific symptom — not only when nothing is listed at all.** This table is a curated subset of Guru's
+runbooks, not a mirror of it; a more targeted card can exist even for an already-cataloged symptom
+class (CHECK-304: this catalog's own "Troubleshooting PLOT collections" row was a plausible match, but
+Guru's "PLOT Retry/Resurrect" card — added below only after the fact — was the one that actually fit
+the ticket's dropped-pledge symptom). Don't stop at the first plausible catalog row.
 
 ---
 
@@ -162,6 +167,15 @@ guard, not a style preference: `PaymentIncrements::CollectPaymentIncrement` rais
 `pledge.state == Pledge::COLLECTING`, and `Pledges::Update` raises `Rosie::PledgeLocked` if
 `pledge.inactive?` — so the reactivating write has to happen first, in that order. Always print
 `pledge.state` in the inspection step for this symptom class, not just dibs/increments.
+
+**Required-input lesson (CHECK-304):** a redib/payment-source-reassignment fix (PLOT Retry/Resurrect)
+needs one thing no console query can produce: **which saved card the backer wants used.** The Guru card
+lists this as an explicit prerequisite; don't bury it as an inline comment on a `target_last4 = ...`
+placeholder line the way the first draft of this remediation did — name it as a requirement up front.
+It doesn't always mean a fresh round-trip to the backer: on CHECK-304 it was inferred from the Zendesk
+ticket text plus the customer's recent Stripe activity rather than asked fresh. Either way, state in the
+write-up whether the value is *confirmed* (backer said so) or *inferred* (from context) — the human
+running the snippet needs to know which, since a wrong card selection here reattempts a real charge.
 
 ---
 
