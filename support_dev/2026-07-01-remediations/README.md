@@ -13,7 +13,7 @@ check taken in-console immediately before any live run.
 | Ticket | Summary | Priority | Classification | System | Confidence |
 |---|---|---|---|---|---|
 | [CHECK-306](check-306.md) | PLOT installment errored, 2 successful Stripe charges | High | State drift (corrected 2026-07-01 — was misclassified as duplicate charge) | rosie | High |
-| [CHECK-304](check-304.md) | PLOT installment not attempted, still errored | High | Collection never ran | rosie | Medium |
+| [CHECK-304](check-304.md) | PLOT installment not attempted, still errored | High | Collection never ran (refined 2026-07-01 — likely dropped pledge) | rosie | Medium |
 | [CHECK-303](check-303.md) | PLOT installments errored, successful in Stripe (2 backers) | High | State drift | rosie | High |
 | [CHECK-250](check-250.md) | Blank dialog fixing errored PLOT payment | Medium | UI symptom, state varies | rosie | Needs-diagnosis |
 | [CHECK-236](check-236.md) | German translation edit | Low | Copy/i18n — no remediation | — | N/A |
@@ -38,3 +38,11 @@ added and are up for review on `demo/plot-refund-tasks-tests` in rosie
 (`RefundDuplicateCharge`). The EM corrected it on the ticket — it's state drift
 (`SyncIncrementalPledgeToStripe`), same as CHECK-303. See [check-306.md](check-306.md) for the
 corrected writeup and what went wrong with the original read.
+
+**Refinement (2026-07-01):** CHECK-304's remediation was refined after the EM pointed to the Guru "PLOT
+Retry/Resurrect" card. The original two-branch guess never inspected `pledge.state`, so it couldn't tell
+a **dropped** pledge (`INACTIVE`, dibs released) from a genuinely stuck one. See
+[check-304.md](check-304.md) for the branched remediation and the state-machine guards (confirmed
+against rosie `origin/main`) that make the reactivation order non-optional. This also sharpened the
+catalog's `ResyncBackingWithPledge` gap note — it silently no-ops for `COLLECTING` too, not just
+`ACTIVE` as previously written.

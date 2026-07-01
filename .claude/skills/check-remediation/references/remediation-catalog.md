@@ -88,18 +88,20 @@ Run in the kickstarter production console; operate on **kickstarter** ids (`Back
 
 | Service object | File | Use |
 |---|---|---|
-| `ResyncBackingWithPledge` | `lib/support_tasks/resync_backing_with_pledge.rb` | "Unsettled Backings": syncs backing status from the rosie pledge state. Only two branches exist: `Rosie::Pledge::COLLECTED` → `Backing::STATE_COLLECTED`; `Rosie::Pledge::INACTIVE` → `Backing::STATE_DROPPED`. `.call(admin_id:, backing_id:)`. **Gap (confirmed against `origin/main` 2026-07-01): no branch for `Rosie::Pledge::ACTIVE` (ongoing PLOT) — silently no-ops**, doesn't raise. For that case: `Backing#update!(status: Backing::STATE_PLEDGED, status_reason: "...")` manually, mirroring the task's own `status_reason` convention — use `update!` (not `update_column`) so the `pledged_at`-setting and other status-transition callbacks still fire. |
+| `ResyncBackingWithPledge` | `lib/support_tasks/resync_backing_with_pledge.rb` | "Unsettled Backings": syncs backing status from the rosie pledge state. Only two branches exist: `Rosie::Pledge::COLLECTED` → `Backing::STATE_COLLECTED`; `Rosie::Pledge::INACTIVE` → `Backing::STATE_DROPPED`. `.call(admin_id:, backing_id:)`. **Gap (confirmed against `origin/main` 2026-07-01): no branch for `ACTIVE` or `COLLECTING` (ongoing/mid-cycle PLOT) — silently no-ops**, doesn't raise — anything that isn't `COLLECTED`/`INACTIVE` falls straight through. For that case, use the Guru "PLOT Retry/Resurrect" card's resync pattern instead of a bare manual write — it derives `Backing` status from `backing.rosie_pledge.state` across `ACTIVE`/`COLLECTING` → `STATE_PLEDGED` and `COLLECTED` → `STATE_COLLECTED`, with an implicit no-op else. Use `update!` (not `update_column`) so `pledged_at`-setting and other status-transition callbacks still fire. |
 | `FixOrphanedBacking` | `lib/support_tasks/fix_orphaned_backing.rb` | Rosie pledge `active` but KSR backing stuck in pre-auth ($0, no `pledge_key`) after a failed checkout signal. `.new(backing_id:, project_id:, pledge_id:, payment_source_id:).call`. |
 | `DropErroredPledges` | `lib/support_tasks/drop_errored_pledges.rb` | Drop errored pledges (often fraudulent). `.batch_run(admin_id:, backing_ids:, state_reason: nil)`. |
 | `SyncRefundCheckout` | `lib/support_tasks/sync_refund_checkout.rb` | Sync a `RefundCheckout` to a successful `Rosie::Refund` (legacy 3DS-delayed refunds). `.call(refund_checkout:, rosie_refund:)`. |
 
 > Earlier drafts mis-filed `ResyncBackingWithPledge` as a rosie task — it is **kickstarter**.
 >
-> **`ResyncBackingWithPledge` gap (CHECK-306 follow-up):** don't reach for this task when a ticket needs
-> a backing to reflect an *ongoing* PLOT pledge — it only covers a rosie pledge that's reached
-> `COLLECTED` or `INACTIVE`, and silently no-ops for `ACTIVE`. Write `status: Backing::STATE_PLEDGED`
-> manually instead (see table row above). Worth a small patch to add the missing branch; flagged, not
-> yet done.
+> **`ResyncBackingWithPledge` gap (CHECK-306 follow-up, sharpened 2026-07-01):** don't reach for this
+> task when a ticket needs a backing to reflect an *ongoing* PLOT pledge — it only covers a rosie pledge
+> that's reached `COLLECTED` or `INACTIVE`, and silently no-ops for **both `ACTIVE` and `COLLECTING`**
+> (any other state falls through with no branch, not just `ACTIVE`). Use the Guru "PLOT Retry/Resurrect"
+> card's `case backing.rosie_pledge.state` pattern instead of a bare manual write (see table row above)
+> — same idea, but it also covers `COLLECTED` and is a citable runbook rather than an invented snippet.
+> Worth a small patch to add the missing branches to the task itself; flagged, not yet done.
 
 ---
 
@@ -109,6 +111,7 @@ Run in the kickstarter production console; operate on **kickstarter** ids (`Back
 |---|---|---|
 | Remediating Errored PLOT Payments | https://app.getguru.com/card/ibxroprT/Remediating-Errored-PLOT-Payments | Suspended Stripe capabilities (→ T&S) and payment-already-succeeded (→ flip increment to `collected`). |
 | Troubleshooting PLOT collections | https://app.getguru.com/card/TgXyyRyc/Troubleshooting-PLOT-collections | Pledge with no increments; re-run `Pledges::Collect`; collect outside the normal window. |
+| PLOT Retry / Resurrect | https://app.getguru.com/card/cAzenGei/PLOT-Retry-Resurrect-How-to-manually-update-payment-source-for-PLOT-Pledge-Over-Time-and-retry-payment-for-a-dropped-pledge | "Undrop" an `INACTIVE` PLOT pledge (dibs released) and reattach a payment source: raw `state: Pledge::COLLECTING` write → `Pledges::Update` (redib) → `PaymentIncrements::CollectPaymentIncrement` on the specific increment. Also the source of the `backing.rosie_pledge.state` backing-resync pattern used in the `ResyncBackingWithPledge` gap above. |
 | Campaigns::CollectJob - CollectionBlocked | https://app.getguru.com/card/pc5L9ybc/CampaignsCollectJob-CollectionBlocked | Backing↔pledge count/amount conflicts, orphaned backings, shared pledge keys, resync. |
 | Unsettled Backings | https://app.getguru.com/card/iedA66bT/Unsettled-Backings | Backings that missed the pledge-collected signal — `ResyncBackingWithPledge`. |
 | Who can enter in Pledge Manager? | https://app.getguru.com/card/TxGM4pXc/Who-can-enter-in-Pledge-Manager- | Auto-exempt semantics; re-entry after completed checkout normally disallowed. |
@@ -125,11 +128,11 @@ Search Guru (Support team bot) for anything not listed — this catalog is not e
 |---|---|---|---|
 | Increment shows `errored` but Stripe shows the charge `succeeded` | State drift | rosie | `SyncIncrementalPledgeToStripe` (dry-run → live) after confirming PI `succeeded` in-console |
 | Backer has 2+ successful Stripe PaymentIntents **confirmed against the same increment/installment** (retried a 3DS-required card fix after project success) | Duplicate charge | rosie | `RefundDuplicateCharge.perform(ksr_backing_id:)` — no dry-run; manually preview via `pledge.payment_intents.where.not(succeeded_at: nil)` first (see "ID conventions" / task table above) |
-| PLOT errored, **no payment attempts found** | Collection never ran / increments missing | rosie | Troubleshooting-PLOT path: confirm capabilities, then `Pledges::Collect.call` or re-drive `IncrementalPledgeCollectionJob` |
+| PLOT errored, **no payment attempts found** | Collection never ran — branches on `pledge.state`, see lesson below | rosie | `state == "inactive"` (dropped, dibs released): PLOT Retry/Resurrect path — reactivate (`state: Pledge::COLLECTING` raw write) → `Pledges::Update` (redib) → `PaymentIncrements::CollectPaymentIncrement`. `"active"`/`"collecting"` already: `PaymentIncrements::CollectPaymentIncrement` directly. Increments don't exist yet: `Pledges::Collect.call` or re-drive `IncrementalPledgeCollectionJob` |
 | Blank/empty dialog or red box fixing an errored PLOT pledge | UI symptom; state varies | rosie | Dry-run sync to diagnose: succeeded → sync; healthy-not-succeeded → re-drive |
 | Backer can't collect; Stripe capabilities **suspended** | Not an SD fix | — | Tag Trust & Safety (payments) — STOP |
 | Backing active but pledge inactive, or pledge collected but backing didn't get the signal; collection blocked | Backing↔pledge drift | kickstarter | `ResyncBackingWithPledge` (Unsettled Backings / CollectionBlocked) — only covers rosie pledge `COLLECTED`/`INACTIVE` |
-| Kickstarter backing needs to reflect an ongoing PLOT pledge (rosie pledge `ACTIVE`) after a rosie-side fix | Backing↔pledge drift, ongoing PLOT | kickstarter | `ResyncBackingWithPledge` doesn't cover this state (silently no-ops) — manual `Backing#update!(status: Backing::STATE_PLEDGED, status_reason:)` |
+| Kickstarter backing needs to reflect an ongoing PLOT pledge (rosie pledge `ACTIVE` or `COLLECTING`) after a rosie-side fix | Backing↔pledge drift, ongoing PLOT | kickstarter | `ResyncBackingWithPledge` doesn't cover these states (silently no-ops) — use the PLOT Retry/Resurrect card's `case backing.rosie_pledge.state` pattern (`ACTIVE`/`COLLECTING` → `STATE_PLEDGED`) |
 | Rosie pledge active, KSR backing stuck pre-auth ($0, no pledge_key) | Orphaned backing | kickstarter | `FixOrphanedBacking` |
 | Errored / likely-fraudulent pledges to drop | Drop errored | kickstarter | `DropErroredPledges.batch_run` |
 | RefundCheckout not matching a successful rosie refund (legacy 3DS) | Refund sync | kickstarter | `SyncRefundCheckout` |
@@ -148,6 +151,17 @@ which Stripe PI is actually linked to which increment (via the increment's own `
 collection record) without guessing, so when in doubt, run that dry-run first — it's non-destructive
 and will surface a genuine duplicate too (two PIs mapped to the same increment). Reach for
 `RefundDuplicateCharge` only once a duplicate against the *same* increment is confirmed, not inferred.
+
+**Collection-never-ran diagnosis lesson (CHECK-304):** "no payment attempts found" has more than one
+root cause, and the fix branches on `pledge.state` — which the original CHECK-304 remediation never
+actually inspected (it printed `active_dibs` and `payment_increments`, but not the pledge's own state
+column). An `INACTIVE` pledge already had its dibs released by the `deactivate` transition's
+`after_transition` callback — that's a **dropped** pledge, not a "stuck" one, and it needs the PLOT
+Retry/Resurrect reactivation sequence before any collection attempt can work at all. This is a hard
+guard, not a style preference: `PaymentIncrements::CollectPaymentIncrement` raises unless
+`pledge.state == Pledge::COLLECTING`, and `Pledges::Update` raises `Rosie::PledgeLocked` if
+`pledge.inactive?` — so the reactivating write has to happen first, in that order. Always print
+`pledge.state` in the inspection step for this symptom class, not just dibs/increments.
 
 ---
 
